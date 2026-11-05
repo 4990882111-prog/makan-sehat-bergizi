@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Piring Pintar – Game Makan Sehat</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap');
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#e9f4e4; --card:#ffffff; --ink:#12372a; --muted:#52705f;
+  --good:#1f8a4c; --good-ink:#ffffff; --bad:#d6452b; --bad-ink:#ffffff;
+  --gold:#f2b632; --line:#cfe3c8;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0f2a20; --card:#17392c; --ink:#eaf6ea; --muted:#9bbfa9;
+    --good:#43b872; --good-ink:#08261a; --bad:#ef6a50; --bad-ink:#2a0d06;
+    --gold:#f2b632; --line:#245241;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0f2a20; --card:#17392c; --ink:#eaf6ea; --muted:#9bbfa9;
+  --good:#43b872; --good-ink:#08261a; --bad:#ef6a50; --bad-ink:#2a0d06;
+  --gold:#f2b632; --line:#245241;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);
+  font-family:'Fredoka','Trebuchet MS',system-ui,sans-serif;font-size:18px;line-height:1.4;
+  display:flex;justify-content:center;padding:20px 16px}
+main{width:100%;max-width:460px}
+h1{font-size:2.3rem;line-height:1.05;margin:8px 0 12px;font-weight:700}
+p{margin:0 0 14px;color:var(--muted)}
+.screen{display:none}.screen.on{display:block}
+button{font:inherit;cursor:pointer;border:0;border-radius:18px;padding:14px 18px;font-weight:600;color:inherit}
+button:focus-visible{outline:4px solid var(--gold);outline-offset:3px}
+.go{background:var(--gold);color:#3a2a00;width:100%;font-size:1.2rem;padding:16px}
+.hud{display:flex;justify-content:space-between;align-items:center;font-weight:600;margin-bottom:10px}
+.pill{background:var(--card);border:2px solid var(--line);border-radius:999px;padding:4px 14px}
+.bar{height:10px;border-radius:99px;background:var(--line);overflow:hidden;margin-bottom:18px}
+.bar i{display:block;height:100%;width:100%;background:var(--good);transform-origin:left}
+@keyframes drain{from{transform:scaleX(1);background:var(--good)}60%{background:var(--gold)}to{transform:scaleX(0);background:var(--bad)}}
+.plate{margin:0 auto 14px;width:210px;height:210px;border-radius:50%;background:var(--card);
+  border:10px solid var(--line);display:grid;place-items:center;font-size:96px;
+  box-shadow:inset 0 0 0 8px var(--bg)}
+.name{text-align:center;font-size:1.7rem;font-weight:700;margin-bottom:16px}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.choices button{font-size:1.15rem;padding:18px 8px}
+.ok{background:var(--good);color:var(--good-ink)}
+.no{background:var(--bad);color:var(--bad-ink)}
+.card{background:var(--card);border:2px solid var(--line);border-radius:22px;padding:18px;margin-top:14px}
+.verdict{font-weight:700;font-size:1.3rem;margin-bottom:4px}
+.verdict.r{color:var(--good)}.verdict.w{color:var(--bad)}
+.card p{color:var(--ink);margin-bottom:14px}
+.big{font-size:4rem;font-weight:700;line-height:1;margin:6px 0}
+.tips{padding-left:20px;margin:0 0 16px;color:var(--muted)}
+.tips li{margin-bottom:6px}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){.bar i{animation-duration:.01s!important}}
+</style>
+</head>
+<body>
+<main>
+  <section id="s-start" class="screen on">
+    <div class="plate" aria-hidden="true">🥗</div>
+    <h1>Piring Pintar</h1>
+    <p>Makanan muncul satu per satu. Putuskan dengan cepat: bergizi untuk dimakan setiap hari, atau kurang sehat dan sebaiknya dibatasi? Kamu punya 8 detik per makanan.</p>
+    <button class="go" id="start">Mulai main</button>
+  </section>
+
+  <section id="s-play" class="screen">
+    <div class="hud">
+      <span class="pill" id="count">1/12</span>
+      <span class="pill" id="combo">Beruntun 0</span>
+      <span class="pill" id="score">0 poin</span>
+    </div>
+    <div class="bar" aria-hidden="true"><i id="timer"></i></div>
+    <div class="plate" id="emoji" aria-hidden="true"></div>
+    <div class="name" id="name"></div>
+    <div class="choices" id="choices">
+      <button class="ok" data-a="1">✔ Bergizi</button>
+      <button class="no" data-a="0">✖ Kurang sehat</button>
+    </div>
+    <div class="card" id="fb" hidden aria-live="polite">
+      <div class="verdict" id="verdict"></div>
+      <p id="fact"></p>
+      <button class="go" id="next">Lanjut</button>
+    </div>
+  </section>
+
+  <section id="s-end" class="screen">
+    <div class="plate" aria-hidden="true" id="medal">🏆</div>
+    <h1 id="rank"></h1>
+    <div class="big" id="final"></div>
+    <p id="detail"></p>
+    <ul class="tips">
+      <li>Isi setengah piring dengan sayur dan buah.</li>
+      <li>Pilih air putih sebagai minuman utama.</li>
+      <li>Batasi gorengan, minuman manis, dan mi instan.</li>
+    </ul>
+    <button class="go" id="again">Main lagi</button>
+  </section>
+</main>
+
+<script>
+const FOODS=[
+["🥬","Bayam",1,"Kaya zat besi dan folat yang membantu tubuh membentuk sel darah."],
+["🍤","Gorengan",0,"Menyerap banyak minyak. Boleh sesekali, bukan camilan harian."],
+["🥤","Es teh manis",0,"Satu gelas bisa berisi beberapa sendok gula. Air putih lebih baik."],
+["🍌","Pisang",1,"Sumber energi dan kalium, praktis dibawa sebagai camilan."],
+["🐟","Ikan bakar",1,"Protein berkualitas dan lemak baik yang menunjang kerja otak."],
+["🍜","Mi instan",0,"Tinggi natrium dan rendah serat. Tambah sayur dan telur kalau terpaksa."],
+["🥚","Telur rebus",1,"Protein lengkap, murah, dan mudah didapat."],
+["🍬","Permen",0,"Hampir hanya gula, tanpa gizi lain, dan mudah menempel di gigi."],
+["🥕","Wortel",1,"Beta karoten diubah tubuh menjadi vitamin A untuk kesehatan mata."],
+["🥫","Minuman soda",0,"Tinggi gula tetapi tidak membawa nutrisi yang berarti."],
+["🫘","Tempe",1,"Protein nabati hasil fermentasi, bagus untuk pencernaan."],
+["🍩","Donat bergula",0,"Gula dan lemaknya tinggi, rasa kenyangnya cepat hilang."],
+["🍊","Jeruk",1,"Vitamin C untuk menjaga daya tahan tubuh."],
+["🥔","Keripik kemasan",0,"Tinggi garam dan minyak, mudah dimakan berlebihan."],
+["💧","Air putih",1,"Cukup minum membantu pencernaan dan menjaga fokus belajar."],
+["🍉","Semangka",1,"Kaya air dan vitamin, menyegarkan tanpa banyak gula tambahan."]
+];
+const ROUNDS=12, SECS=8;
+const $=id=>document.getElementById(id);
+let q,i,score,combo,right,best,tm,locked;
+
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on',s.id===id))}
+function shuffle(a){a=a.slice();for(let k=a.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[a[k],a[j]]=[a[j],a[k]]}return a}
+
+function start(){
+  q=shuffle(FOODS).slice(0,ROUNDS);i=0;score=0;combo=0;right=0;best=0;
+  show('s-play');round();
+}
+function round(){
+  locked=false;
+  const f=q[i];
+  $('emoji').textContent=f[0];$('name').textContent=f[1];
+  $('count').textContent=(i+1)+'/'+ROUNDS;
+  $('combo').textContent='Beruntun '+combo;
+  $('score').textContent=score+' poin';
+  $('fb').hidden=true;$('choices').hidden=false;
+  const t=$('timer');t.style.animation='none';void t.offsetWidth;
+  t.style.animation='drain '+SECS+'s linear forwards';
+  clearTimeout(tm);tm=setTimeout(()=>answer(-1),SECS*1000);
+}
+function answer(a){
+  if(locked)return;locked=true;clearTimeout(tm);
+  $('timer').style.animation='none';
+  const f=q[i],ok=a===f[2];
+  const v=$('verdict');
+  if(ok){
+    right++;combo++;best=Math.max(best,combo);
+    score+=10+Math.min(combo-1,5)*2;
+    v.textContent='Tepat! '+(f[2]?'Bergizi.':'Kurang sehat.');v.className='verdict r';
+  }else{
+    combo=0;
+    v.textContent=(a===-1?'Waktu habis. ':'Belum tepat. ')+'Ini '+(f[2]?'bergizi.':'kurang sehat.');v.className='verdict w';
+  }
+  $('fact').textContent=f[3];
+  $('combo').textContent='Beruntun '+combo;
+  $('score').textContent=score+' poin';
+  $('choices').hidden=true;$('fb').hidden=false;
+  $('next').textContent=i===ROUNDS-1?'Lihat hasil':'Lanjut';
+  $('next').focus();
+}
+function next(){
+  i++;
+  if(i>=ROUNDS)return finish();
+  round();
+}
+function finish(){
+  const pct=right/ROUNDS;
+  const [m,r]=pct>=.9?['🏆','Juara Gizi']:pct>=.7?['🥈','Ahli Piring Sehat']:pct>=.5?['🥉','Pemula Berbakat']:['🌱','Terus Belajar'];
+  $('medal').textContent=m;$('rank').textContent=r;
+  $('final').textContent=score+' poin';
+  $('detail').textContent='Benar '+right+' dari '+ROUNDS+'. Rangkaian jawaban benar terpanjang: '+best+'.';
+  show('s-end');
+}
+$('start').onclick=start;$('again').onclick=start;$('next').onclick=next;
+$('choices').addEventListener('click',e=>{const b=e.target.closest('button');if(b)answer(+b.dataset.a)});
+</script>
+</body>
+</html>
